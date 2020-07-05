@@ -1,0 +1,17 @@
+/.gradle/
+/.idea/
+/build/
+/logs/
+/plugins/
+/world/
+/world_the_end/
+/banned-ips.json
+/banned-players.json
+/bukkit.yml
+/commands.yml
+/help.yml
+/ops.json
+/permissions.yml
+/spigot.yml
+/whitelist.json
+/spigot.jar
