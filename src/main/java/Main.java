@@ -12,7 +12,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
 
 import static java.util.Arrays.asList;
 
@@ -123,19 +123,33 @@ public class Main {
         DedicatedServer dedicatedserver = dedicatedServer(worldName, optionset);
         dedicatedserver.executeSync(() -> {
             while (!pairs.isEmpty()) {
-                for(int k = 0; k < 1000 && !pairs.isEmpty(); k++){
-                    ChunkCoordIntPair pair = pairs.poll();
+                List<ChunkCoordIntPair> selection = new LinkedList<>();
 
+                for (int k = 0; k < 1000 && !pairs.isEmpty(); k++) {
+                    selection.add(pairs.poll());
+                }
+
+                for (ChunkCoordIntPair pair : selection) {
                     dedicatedserver.getWorlds()
                             .forEach(worldServer -> {
                                 ChunkProviderServer chunkProviderServer = worldServer.getChunkProvider();
                                 chunkProviderServer.addTicket(TicketType.START, pair, 0, Unit.INSTANCE);
                             });
                 }
+
+
                 executeModerately(dedicatedserver);
 
                 dedicatedserver.saveChunks(false, true, false);
-                System.out.println(pairs.size()+" Chunks left.");
+                System.out.println(pairs.size() + " Chunks left.");
+
+                for (ChunkCoordIntPair pair : selection) {
+                    dedicatedserver.getWorlds()
+                            .forEach(worldServer -> {
+                                ChunkProviderServer chunkProviderServer = worldServer.getChunkProvider();
+                                chunkProviderServer.removeTicket(TicketType.START, pair, 0, Unit.INSTANCE);
+                            });
+                }
             }
         });
 
