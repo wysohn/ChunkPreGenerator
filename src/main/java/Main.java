@@ -8,11 +8,11 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Random;
-import java.util.concurrent.CompletableFuture;
+import java.util.*;
+import java.util.concurrent.*;
 
 import static java.util.Arrays.asList;
 
@@ -50,7 +50,6 @@ public class Main {
             properties.setProperty("server-port", String.valueOf(50000 + random.nextInt(5000)));
             properties.setProperty("level-name", worldName);
             properties.setProperty("max-world-size", String.valueOf(maxWorldSize));
-            properties.setProperty("allow-nether", "false");
             properties.setProperty("spawn-monsters", "false");
             properties.setProperty("spawn-npcs", "false");
             properties.setProperty("online-mode", "false");
@@ -113,6 +112,47 @@ public class Main {
         OptionParser parser = getParser();
         OptionSet optionset = parser.parse("--config=temp.properties");
 
+        Queue<ChunkCoordIntPair> pairs = new LinkedList<>();
+        int chunk_max = (int) Math.ceil(max / 16.0);
+        for (int x = -chunk_max; x <= chunk_max; x++) {
+            for (int z = -chunk_max; z <= chunk_max; z++) {
+                pairs.add(new ChunkCoordIntPair(x, z));
+            }
+        }
+
+        DedicatedServer dedicatedserver = dedicatedServer(worldName, optionset);
+        dedicatedserver.executeSync(() -> {
+            while (!pairs.isEmpty()) {
+                for(int k = 0; k < 1000 && !pairs.isEmpty(); k++){
+                    ChunkCoordIntPair pair = pairs.poll();
+
+                    dedicatedserver.getWorlds()
+                            .forEach(worldServer -> {
+                                ChunkProviderServer chunkProviderServer = worldServer.getChunkProvider();
+                                chunkProviderServer.addTicket(TicketType.START, pair, 0, Unit.INSTANCE);
+                            });
+                }
+                executeModerately(dedicatedserver);
+
+                dedicatedserver.saveChunks(false, true, false);
+                System.out.println(pairs.size()+" Chunks left.");
+            }
+        });
+
+        dedicatedserver.safeShutdown(true);
+    }
+
+    private static void executeModerately(MinecraftServer server){
+        try {
+            Method method = MinecraftServer.class.getDeclaredMethod("executeModerately");
+            method.setAccessible(true);
+            method.invoke(server);
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static DedicatedServer dedicatedServer(String worldName, OptionSet optionset) throws IOException {
         IRegistryCustom.Dimension iregistrycustom_dimension = IRegistryCustom.b();
 
         File file = new File(".");
@@ -155,27 +195,7 @@ public class Main {
 
             return dedicatedserver1;
         });
-
-        dedicatedserver.execute(() -> dedicatedserver.getWorlds()
-                .forEach(worldServer -> {
-                    if(!worldServer.getWorld().getName().equals(worldName))
-                        return;
-
-                    ChunkProviderServer chunkProviderServer = worldServer.getChunkProvider();
-                    int chunk_max = (int) Math.ceil(max / 16.0);
-
-                    for (int x = -chunk_max; x <= chunk_max; x++) {
-                        for (int z = -chunk_max; z <= chunk_max; z++) {
-                            chunkProviderServer.addTicket(TicketType.START,
-                                    new ChunkCoordIntPair(x, z),
-                                    0, // 33 - i level
-                                    Unit.INSTANCE);
-                        }
-                    }
-
-                }));
-
-        dedicatedserver.safeShutdown(true);
+        return dedicatedserver;
     }
 
     private static OptionParser getParser() {
