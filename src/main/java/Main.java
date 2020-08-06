@@ -83,7 +83,6 @@ public class Main {
     }
 
     public static int INVALID_NAME = 300;
-    public static int NAME_EXISTS = 400;
     public static int INVALID_SIZE = 301;
     public static void main(String[] ar) throws IOException {
         checkVersion(targetVersion);
@@ -91,11 +90,6 @@ public class Main {
         String worldName = Dialogues.askWorldName(ar);
         if(worldName == null) {
             System.exit(INVALID_NAME);
-            return;
-        }
-
-        if(new File(worldName).exists()){
-            System.exit(NAME_EXISTS);
             return;
         }
 
@@ -136,8 +130,6 @@ public class Main {
                                 chunkProviderServer.addTicket(TicketType.START, pair, 0, Unit.INSTANCE);
                             });
                 }
-
-
                 executeModerately(dedicatedserver);
 
                 dedicatedserver.saveChunks(false, true, false);
@@ -150,6 +142,7 @@ public class Main {
                                 chunkProviderServer.removeTicket(TicketType.START, pair, 0, Unit.INSTANCE);
                             });
                 }
+                executeModerately(dedicatedserver);
             }
         });
 
